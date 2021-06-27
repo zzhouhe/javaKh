@@ -797,15 +797,15 @@ public class Komplex<R extends Ring<R>> implements Serializable {
             if (i != ncolForSmith - 1) {
                 ////////////////////////////////////////////////////////////////////////////////////////////
                 //mats[i].toSmithForm(this, i);								//Smith 计算
-                boolean isSparse = false;
+                boolean isSparse = true;
                 OUT:
                 for (int r = 0; r < mats[i].rows; r++) {
                     int numNumZero = 0;
                     for (int c = 0; c < mats[i].columns; c++) {
-                        if (mats[i].matrix[r][c] != BigInteger.ZERO) {
+                        if (mats[i].matrix[r][c].compareTo(BigInteger.ZERO) != 0) {
                             numNumZero++;
                             if (numNumZero > 1){
-                                isSparse = true;
+                                isSparse = false;
                                 break OUT;
                             }
                         }
