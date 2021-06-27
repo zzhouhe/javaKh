@@ -1,17 +1,13 @@
 package org.katlas.JavaKh;
 
+import java.util.concurrent.Executors;
 import java.io.*;
 import java.util.*;
 import java.math.BigInteger;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.*;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
@@ -455,26 +451,7 @@ public class Komplex<R extends Ring<R>> implements Serializable {
     }
     public int LoadIntMatState(int param)
     {
-        File saveConfig = new File("config.ini");
-        if (saveConfig.exists()) {
-            try {
 
-                BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(saveConfig)));
-                String l;
-                while((l = br.readLine())!=null) {
-                    String[] ll = l.split("=");
-                    if (ll[0].compareTo("autoSave") == 0) {
-                        autoSave = Integer.parseInt(ll[1]);
-                    } else if (ll[0].compareTo("outputAlready") == 0) {
-                        outputAlready = Integer.parseInt(ll[1]);
-                    }
-                }
-                br.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return -1;
-            }
-        }
 
         int maxSaved = -1;
 //        for (int i = ncolForSmith - 1; i >= param; i--) {
@@ -588,7 +565,33 @@ public class Komplex<R extends Ring<R>> implements Serializable {
 
     @SuppressWarnings("unchecked")
     public long lastTime;
+    public ExecutorService executorService;
+    public int maxThreads = 6;
     public String KhForZ() {
+        File saveConfig = new File("config.ini");
+        if (saveConfig.exists()) {
+            try {
+
+                BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(saveConfig)));
+                String l;
+                while((l = br.readLine())!=null) {
+                    String[] ll = l.split("=");
+                    if (ll[0].compareTo("autoSave") == 0) {
+                        autoSave = Integer.parseInt(ll[1]);
+                    } else if (ll[0].compareTo("outputAlready") == 0) {
+                        outputAlready = Integer.parseInt(ll[1]);
+                    } else if (ll[0].compareTo("maxThreads") == 0){
+                        maxThreads = Integer.parseInt(ll[1]);
+                    }
+                }
+                br.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return "";
+            }
+        }
+        executorService = Executors.newFixedThreadPool(maxThreads);
+
         lastTime = System.currentTimeMillis();
 
         Rings<R> ring = Rings.current();
