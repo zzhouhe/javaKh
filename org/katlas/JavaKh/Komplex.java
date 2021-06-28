@@ -733,6 +733,13 @@ public class Komplex<R extends Ring<R>> implements Serializable {
                 prevMat.target = tt;
                 prevMat.toSmithForm(null, 0);
                 n = Math.min(prevMat.rows, prevMat.columns);
+            } else {
+                for (int t = 0; t < colcopy.get(i).size(); t++) {
+                    tt.add(0);
+                }
+                for (int t = 0; t < colcopy.get(i).size(); t++) {
+                    tt.set(t, colcopy.get(i).get(t));
+                }
             }
             while (true) {
                 int min = 0x7fffffff;

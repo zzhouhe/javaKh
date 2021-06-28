@@ -1,7 +1,5 @@
 package org.katlas.JavaKh;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.text.DecimalFormat;
 
 import org.apache.commons.cli.CommandLine;
@@ -16,9 +14,6 @@ import org.apache.log4j.Logger;
 
 import org.katlas.JavaKh.algebra.rings.ModP;
 import org.katlas.JavaKh.algebra.rings.Rings;
-
-
-import java.io.FileReader;
 
 public class JavaKh {
 	private static final Log log = LogFactory.getLog(JavaKh.class);
@@ -113,13 +108,38 @@ public class JavaKh {
 	//Komplex.checkReidemeister();
 		BufferedReader br = new BufferedReader(new FileReader("PD.txt"));
 	while (true) {
-	    int knot[][] = Komplex.getPD(br);
-	    if (knot == null)
-			break;
+        int snapPd = 0;
+        File saveConfig = new File("config.ini");
+        if (saveConfig.exists()) {
+            try {
+
+                BufferedReader bnbr = new BufferedReader(new InputStreamReader(new FileInputStream(saveConfig)));
+                String l;
+                while ((l = bnbr.readLine()) != null) {
+                    String[] ll = l.split("=");
+                    if (ll[0].compareTo("snapPd") == 0) {
+                        snapPd = Integer.parseInt(ll[1]);
+                    }
+                }
+                bnbr.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return;
+            }
+        }
+        int knot[][];
+        if (snapPd == 1)
+            knot = Komplex.getPDforSnappy(br);
+        else
+            knot = Komplex.getPD(br);
+        if (knot == null)
+            break;
 
 		File head = new File("cache/Smith/head");
 		Komplex k;
+
 		if (!head.exists()) {
+
 			k = Komplex.generateFast(knot, Komplex.getSigns(knot), reorderCrossings, caching, inMemory);
 			assert k.check(true);
 		} else {
