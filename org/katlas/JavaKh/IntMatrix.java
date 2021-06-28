@@ -276,10 +276,23 @@ public class IntMatrix {
     public ArrayList<CptParam> pArray = new ArrayList<>();
 	public Object synObj = null;
 	public int nDone = 0;
+	public BigInteger normRow[];
+	public BigInteger normCol[];
 
-    public void toSmithFormFast(Komplex kom, int param, int state){
+    public void toSmithFormFast(Komplex kom, int param, int state) {
+        if (rows > 500 || columns > 500)
+            for (int i = 0; i < 4; ++i) {
+                System.gc();
+            }
         IntMatrix normMat = new IntMatrix(rows, columns);
-
+		normRow = new BigInteger[rows];
+		normCol = new BigInteger[columns];
+        for (int i = 0; i < normRow.length ; i++) {
+            normRow[i] = BigInteger.ZERO;
+        }
+        for (int j = 0; j < normCol.length; j++) {
+            normCol[j] = BigInteger.ZERO;
+        }
         synObj = new Object();
 
         for (int row = state, col = state; row < rows && col < columns; row++, col++) {
@@ -301,6 +314,40 @@ public class IntMatrix {
 //            }
             //computeNormMat(normMat, row, rows, col, columns);
             //Vector<Integer> lines = new Vector<>();
+            for (int i = row; i < rows; i++) {
+//                normRow[i] = BigInteger.ZERO;
+//                for (int k = col; k < columns; k++) {
+//                    normRow[i] = normRow[i].add(matrix[i][k].multiply(matrix[i][k]));
+//                }
+                synchronized (synObj) {
+                    pArray.add(new CptParam(i, -1, -1, -1, row, col));
+                    nDone = 0;
+                }
+            }
+            for (int j = col; j < columns; j++) {
+//                normCol[j] = BigInteger.ZERO;
+//                for (int k = row; k < rows; k++) {
+//                    normCol[j] = normCol[j].add(matrix[k][j].multiply(matrix[k][j]));
+//                }
+                synchronized (synObj) {
+                    pArray.add(new CptParam(-1, -1, j, -1, row, col));
+                    nDone = 0;
+                }
+            }
+
+            for (int i = 0; i < kom.maxThreads; i++) {
+                kom.executorService.execute(new ComputeMatNorm(this, normMat));
+            }
+
+            synchronized (synObj) {
+                try {
+                    while (nDone != kom.maxThreads)
+                        synObj.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
             for (int i = row; i < rows; i++) {
                 synchronized (synObj) {
                     pArray.add(new CptParam(i, i + 1, col, columns, row, col));
@@ -369,6 +416,19 @@ public class IntMatrix {
                 if (!firstTime){
                     //从所在行和列中重新选取最小 minNorm
                     //计算矩阵的行列 norm
+                    for (int i = row; i < rows; i++) {
+                        synchronized (synObj) {
+                            pArray.add(new CptParam(i, -1, -1, -1, row, col));
+                            nDone = 0;
+                        }
+                    }
+                    for (int j = col; j < columns; j++) {
+                        synchronized (synObj) {
+                            pArray.add(new CptParam(-1, -1, j, -1, row, col));
+                            nDone = 0;
+                        }
+                    }
+
                     synchronized (synObj) {
                         pArray.add(new CptParam(row+1, rows, col, col+1, row, col));
                         pArray.add(new CptParam(row, row+1, col+1, columns, row, col));
@@ -566,17 +626,35 @@ class ComputeMatNorm implements Runnable{
                 }
             }
 
-            for (int i = p.istart; i < p.iend; i++) {
-                for (int j = p.jstart; j < p.jend; j++) {
-                    BigInteger colNorm = BigInteger.ZERO;
-                    BigInteger rowNorm = BigInteger.ZERO;
-                    for (int k = p.curRow; k < m.rows; k++) {
-                        colNorm = colNorm.add(m.matrix[k][j].multiply(m.matrix[k][j]));
+            if (p.istart != -1 && p.jstart != -1) {
+                for (int i = p.istart; i < p.iend; i++) {
+                    for (int j = p.jstart; j < p.jend; j++) {
+//                    BigInteger colNorm = BigInteger.ZERO;
+//                    BigInteger rowNorm = BigInteger.ZERO;
+//                    for (int k = p.curRow; k < m.rows; k++) {
+//                        colNorm = colNorm.add(m.matrix[k][j].multiply(m.matrix[k][j]));
+//                    }
+//                    for (int k = p.curCol; k < m.columns; k++) {
+//                        rowNorm = rowNorm.add(m.matrix[i][k].multiply(m.matrix[i][k]));
+//                    }
+                        //m_norm.matrix[i][j] = colNorm.multiply(rowNorm);
+                        if (m.matrix[i][j].compareTo(BigInteger.ZERO) != 0)
+                            m_norm.matrix[i][j] = m.normRow[i].multiply(m.normCol[j]);
+                        else
+                            m_norm.matrix[i][j] = BigInteger.ZERO;
                     }
-                    for (int k = p.curCol; k < m.columns; k++) {
-                        rowNorm = rowNorm.add(m.matrix[i][k].multiply(m.matrix[i][k]));
-                    }
-                    m_norm.matrix[i][j] = colNorm.multiply(rowNorm);
+                }
+            } else if (p.istart != -1) {
+                int i = p.istart;
+                m.normRow[i] = BigInteger.ZERO;
+                for (int k = p.curCol; k < m.columns; k++) {
+                    m.normRow[i] = m.normRow[i].add(m.matrix[i][k].multiply(m.matrix[i][k]));
+                }
+            } else if (p.jstart != -1) {
+                int j = p.jstart;
+                m.normCol[j] = BigInteger.ZERO;
+                for (int k = p.curRow; k < m.rows; k++) {
+                    m.normCol[j] = m.normCol[j].add(m.matrix[k][j].multiply(m.matrix[k][j]));
                 }
             }
         }
