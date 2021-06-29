@@ -398,8 +398,8 @@ public class Komplex<R extends Ring<R>> implements Serializable {
     private IntMatrix mats[];				//mats 和 colcopy 是需要考虑序列化的部分
     private List<List<Integer>> colcopy;
     private String KhZret;
-    private int autoSave = 0;
-    private int outputAlready = 0;
+    private static int autoSave = 0;
+    private static int outputAlready = 0;
     public void SaveIntMatState(int param, String str)
     {
         long curTime = System.currentTimeMillis();
@@ -557,6 +557,7 @@ public class Komplex<R extends Ring<R>> implements Serializable {
             input.delete();
             return param;
         } finally {
+            System.out.println("\r                                                                                       ");
             info("Completed caching complex.");
             System.out.println("\r\n");
             return maxSaved;
@@ -565,33 +566,42 @@ public class Komplex<R extends Ring<R>> implements Serializable {
 
     @SuppressWarnings("unchecked")
     public long lastTime;
-    public ExecutorService executorService;
-    public int maxThreads = 6;
-    public String KhForZ() {
-        File saveConfig = new File("config.ini");
-        if (saveConfig.exists()) {
-            try {
+    private static ExecutorService executorService;
+    private static int maxThreads = -1;
+    public static int getMaxThreads(){
+        if (maxThreads == -1) {
+            File saveConfig = new File("config.ini");
+            if (saveConfig.exists()) {
+                try {
 
-                BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(saveConfig)));
-                String l;
-                while((l = br.readLine())!=null) {
-                    String[] ll = l.split("=");
-                    if (ll[0].compareTo("autoSave") == 0) {
-                        autoSave = Integer.parseInt(ll[1]);
-                    } else if (ll[0].compareTo("outputAlready") == 0) {
-                        outputAlready = Integer.parseInt(ll[1]);
-                    } else if (ll[0].compareTo("maxThreads") == 0){
-                        maxThreads = Integer.parseInt(ll[1]);
+                    BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(saveConfig)));
+                    String l;
+                    while ((l = br.readLine()) != null) {
+                        String[] ll = l.split("=");
+                        if (ll[0].compareTo("autoSave") == 0) {
+                            autoSave = Integer.parseInt(ll[1]);
+                        } else if (ll[0].compareTo("outputAlready") == 0) {
+                            outputAlready = Integer.parseInt(ll[1]);
+                        } else if (ll[0].compareTo("maxThreads") == 0) {
+                            maxThreads = Integer.parseInt(ll[1]);
+                        }
                     }
+                    br.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    return -1;
                 }
-                br.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-                return "";
             }
         }
-        executorService = Executors.newFixedThreadPool(maxThreads);
-
+        return maxThreads;
+    }
+    public static ExecutorService getExecutor(){
+        if (executorService == null){
+            executorService = Executors.newFixedThreadPool(maxThreads);
+        }
+        return executorService;
+    }
+    public String KhForZ() {
         lastTime = System.currentTimeMillis();
 
         Rings<R> ring = Rings.current();
@@ -924,6 +934,7 @@ public class Komplex<R extends Ring<R>> implements Serializable {
                 debug("delooping " + (i + 1) + "/" + ncolumns);
                 deLoop(i);
 
+                outputStep = 0;
                 invokeGC();
                 if (i > 0) {
                     if (i < ncolumns - 1)
@@ -939,7 +950,7 @@ public class Komplex<R extends Ring<R>> implements Serializable {
                 }
             }
         }
-        System.out.println("\r                                                     ");
+        System.out.println("\r                                                                                       ");
     }
 
     private void parallelReduce() {
@@ -1480,6 +1491,7 @@ public class Komplex<R extends Ring<R>> implements Serializable {
 
         while (!(block = findBlock(m)).isEmpty()) {
             totalReduction += block.size();
+
             ++count;
 
             executionGuard();
@@ -1728,7 +1740,7 @@ public class Komplex<R extends Ring<R>> implements Serializable {
             setMatrix(i + 1, nextMatrix);
         }
     }
-
+    private int outputStep = 0;
     private void blockReductionLemma(int i, List<Isomorphism> block) {
         // first transpose everything.
         List<Integer> rows = new ArrayList<Integer>(block.size()), columns = new ArrayList<Integer>(
@@ -1754,6 +1766,9 @@ public class Komplex<R extends Ring<R>> implements Serializable {
         CobMatrix<R> phiinv = new CobMatrix<R>(delta.target, gamma.source,
                 false, inMemory);
         for (int k = 0; k < block.size(); ++k) {
+            System.out.print(
+                    String.format(
+                            "\b\b\b\b\b\b\b\b\b\b%1$8d/?", outputStep++));
             Cap isoObject = gamma.source.smoothings.get(k);
             assert isoObject != null;
             CannedCobordismImpl phicc = new CannedCobordismImpl(isoObject,
@@ -2866,6 +2881,7 @@ public class Komplex<R extends Ring<R>> implements Serializable {
                     matrices.add(currentMatrix);
                     invokeGC();
                 }
+                System.out.println("\r                                                                                       ");
             }
         } else {
             log.warn("Serialization version looks wrong...");

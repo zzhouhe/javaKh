@@ -149,6 +149,87 @@ public class CobMatrix<R extends Ring<R>> extends
 		return true;
 	}
 
+    public ArrayList<CptParam> pArray = new ArrayList<>();
+	//public Object synObj = new Object();
+	public int nDone;
+
+
+    class CptParam implements Serializable {
+        public CobMatrix<R> theCm;
+        public int i;
+        public CobMatrix<R> cm;
+
+        public CptParam(CobMatrix<R> theCm, int i, CobMatrix<R> cm) {
+            this.theCm = theCm;
+            this.i = i;
+            this.cm = cm;
+        }
+    }
+
+    class ComputeCompose implements Runnable, Serializable {
+        private CobMatrix<R> m;
+        private Object synObj;
+        private CobMatrix<R> ret;
+
+        public ComputeCompose(CobMatrix<R> m, CobMatrix<R> ret) {
+            this.m = m;
+            this.synObj = m;
+            this.ret = ret;
+        }
+
+
+        private void compute() {
+            CptParam p;
+            while (true) {
+                synchronized (synObj) {
+                    if (!m.pArray.isEmpty()) {
+                        p = m.pArray.remove(0);
+                    } else {
+                        m.nDone++;
+                        synObj.notify();
+                        return;
+                    }
+                }
+
+                MatrixRow<LCCC<R>> rowEntriesI = m.entries.get(p.i);
+                MatrixRow<LCCC<R>> result = ret.newRow();
+                for (int j : rowEntriesI.keys()) {
+                    for (int k : p.cm.entries.get(j).keys()) {
+                        assert check();
+                        assert p.cm.check();
+                        assert source.equals(p.cm.target);
+                        assert rowEntriesI.get(j).source().equals(
+                                p.cm.entries.get(j).get(k).target());
+                        LCCC<R> lc = rowEntriesI.get(j).compose(
+                                p.cm.entries.get(j).get(k));
+                        if (lc != null && !lc.isZero()) {
+                            assert lc.target().equals(rowEntriesI.get(j).target());
+                            assert lc.source().equals(
+                                    p.cm.entries.get(j).get(k).source());
+                            if (result.containsKey(k)) {
+                                LCCC<R> sum = result.get(k).add(lc);
+                                if (sum == null || sum.isZero()) {
+                                    result.remove(k);
+                                } else {
+                                    result.put(k, sum);
+                                }
+                            } else {
+                                result.put(k, lc); // stopping to think, sadly we
+                                // can't use putLast here.
+                            }
+                        }
+                    }
+                }
+                ret.entries.set(p.i, result);
+            }
+        }
+
+        @Override
+        public void run() {
+            compute();
+        }
+    }
+
 	public CobMatrix<R> compose(Matrix<R, Cap, LCCC<R>> matrix) { // this * cm
 
 		CobMatrix<R> cm;
@@ -172,42 +253,65 @@ public class CobMatrix<R extends Ring<R>> extends
 		 */
 		CobMatrix<R> ret = new CobMatrix<R>(cm.source, target, false, inMemory);
 
-		for (int i = 0; i < target.n; ++i) {
-			MatrixRow<LCCC<R>> rowEntriesI = entries.get(i);
-			MatrixRow<LCCC<R>> result = ret.newRow();
-			for (int j : rowEntriesI.keys()) {
-				for (int k : cm.entries.get(j).keys()) {
-					// if(entries.size() == 9 && cm.entries.size() == 10 && i >=
-					// 7 && j >= 5) {
-					// System.out.println("foo");
-					// }
-					assert check();
-					assert cm.check();
-					assert source.equals(cm.target);
-					assert rowEntriesI.get(j).source().equals(
-							cm.entries.get(j).get(k).target());
-					LCCC<R> lc = rowEntriesI.get(j).compose(
-							cm.entries.get(j).get(k));
-					if (lc != null && !lc.isZero()) {
-						assert lc.target().equals(rowEntriesI.get(j).target());
-						assert lc.source().equals(
-								cm.entries.get(j).get(k).source());
-						if (result.containsKey(k)) {
-							LCCC<R> sum = result.get(k).add(lc);
-							if (sum == null || sum.isZero()) {
-								result.remove(k);
-							} else {
-								result.put(k, sum);
-							}
-						} else {
-							result.put(k, lc); // stopping to think, sadly we
-							// can't use putLast here.
-						}
-					}
-				}
-			}
-			ret.entries.set(i, result);
-		}
+        for (int i = 0; i < target.n; i++) {
+            synchronized (this) {
+                pArray.add(new CptParam(this,i,cm));
+                nDone = 0;
+            }
+        }
+//		for (int i = 0; i < target.n; ++i) {
+//			MatrixRow<LCCC<R>> rowEntriesI = entries.get(i);
+//			MatrixRow<LCCC<R>> result = ret.newRow();
+//			for (int j : rowEntriesI.keys()) {
+//				for (int k : cm.entries.get(j).keys()) {
+//					// if(entries.size() == 9 && cm.entries.size() == 10 && i >=
+//					// 7 && j >= 5) {
+//					// System.out.println("foo");
+//					// }
+//					assert check();
+//					assert cm.check();
+//					assert source.equals(cm.target);
+//					assert rowEntriesI.get(j).source().equals(
+//							cm.entries.get(j).get(k).target());
+//					LCCC<R> lc = rowEntriesI.get(j).compose(
+//							cm.entries.get(j).get(k));
+//					if (lc != null && !lc.isZero()) {
+//						assert lc.target().equals(rowEntriesI.get(j).target());
+//						assert lc.source().equals(
+//								cm.entries.get(j).get(k).source());
+//						if (result.containsKey(k)) {
+//							LCCC<R> sum = result.get(k).add(lc);
+//							if (sum == null || sum.isZero()) {
+//								result.remove(k);
+//							} else {
+//								result.put(k, sum);
+//							}
+//						} else {
+//							result.put(k, lc); // stopping to think, sadly we
+//							// can't use putLast here.
+//						}
+//					}
+//				}
+//			}
+//			ret.entries.set(i, result);
+//		}
+
+        for (int i = 0; i < Komplex.getMaxThreads(); i++) {
+            Komplex.getExecutor().execute(new ComputeCompose(this, ret));
+        }
+
+        synchronized (this) {
+            try {
+                while (nDone != Komplex.getMaxThreads()) {
+//                    System.out.print(
+//                            String.format(
+//                                    "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b%1$8d/%2$8d", pArray.size(), target.n));
+                    wait();
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 
 		return ret;
 	}
@@ -758,3 +862,4 @@ public class CobMatrix<R extends Ring<R>> extends
 	}
 
 }
+

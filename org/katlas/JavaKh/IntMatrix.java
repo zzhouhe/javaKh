@@ -335,13 +335,13 @@ public class IntMatrix {
                 }
             }
 
-            for (int i = 0; i < kom.maxThreads; i++) {
-                kom.executorService.execute(new ComputeMatNorm(this, normMat));
+            for (int i = 0; i < Komplex.getMaxThreads(); i++) {
+                Komplex.getExecutor().execute(new ComputeMatNorm(this, normMat));
             }
 
             synchronized (synObj) {
                 try {
-                    while (nDone != kom.maxThreads)
+                    while (nDone != Komplex.getMaxThreads())
                         synObj.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -356,8 +356,8 @@ public class IntMatrix {
 
             }
 
-            for (int i = 0; i < kom.maxThreads; i++) {
-                kom.executorService.execute(new ComputeMatNorm(this, normMat));
+            for (int i = 0; i < Komplex.getMaxThreads(); i++) {
+                Komplex.getExecutor().execute(new ComputeMatNorm(this, normMat));
             }
 
             //ComputeMatNorm cpt = new ComputeMatNorm(this, normMat, row, rows, col, columns);
@@ -365,7 +365,7 @@ public class IntMatrix {
             //选择 pivot
             synchronized (synObj) {
                 try {
-                    while (nDone != kom.maxThreads)
+                    while (nDone != Komplex.getMaxThreads())
                         synObj.wait();
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -436,7 +436,7 @@ public class IntMatrix {
                     }
 
                     for (int i = 0; i < 2; i++) {
-                        kom.executorService.execute(new ComputeMatNorm(this, normMat));
+                        Komplex.getExecutor().execute(new ComputeMatNorm(this, normMat));
                     }
                     synchronized (synObj) {
                         try {
